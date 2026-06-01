@@ -76,3 +76,77 @@ repos:
   hooks:
     - id: actionlint
       files: .github/workflows/
+
+- repo: https://github.com/google/addlicense
+  rev: b289835c0741ba2fb92dd5f61af070e79c69a55e  # frozen: v1.2.0
+  hooks:
+  - id: addlicense
+    args: [-c, "The JAX Authors", -l, apache, -check]
+    files: \.[^/]+$
+    exclude: |
+      (?x)^(
+          # Prune third_party
+          third_party/ |
+          jax/_src/third_party/ |
+          tests/third_party/ |
+          # Exclude specific filenames
+          (.*/)?__init__\.py$ |
+          (.*/)?_toc\.yaml$ |
+          # Exclude extensions
+          .*\.(
+              bazel\.lock |
+              bin |
+              bmp |
+              bytes |
+              cff |
+              clang-format |
+              clang-tidy |
+              css |
+              csv |
+              dat |
+              data-.* |
+              dict |
+              diff |
+              flac |
+              gif |
+              golden |
+              golden_summary |
+              gz |
+              html |
+              ico |
+              index |
+              ipynb |
+              jar |
+              jpg |
+              js |
+              json |
+              lite |
+              mdb |
+              meta |
+              parquet |
+              patch |
+              pb |
+              pdf |
+              png |
+              pyc |
+              svg |
+              symbols |
+              text |
+              textproto |
+              tflite |
+              tfrecord |
+              toml |
+              tsv |
+              txt |
+              voc |
+              vocab |
+              wav |
+              webp |
+              yaml |
+              yml |
+              bazel |
+              bzl |
+              BUILD |
+              proto
+          )$
+      )
