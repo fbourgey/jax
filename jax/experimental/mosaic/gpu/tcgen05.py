@@ -1178,25 +1178,17 @@ class TMEMRef:
       raise ValueError("TMEM can only be sliced, not indexed")
     if base_idx == [0] * len(base_idx) and slice_shape == self.shape:
       return self  # Trivial slice
-    if self.layout.base_tile_shape[0] != TMEM_ROWS:
-      raise NotImplementedError(
-          f"Slicing only implemented with layouts using 128 rows, got: "
-          f"{self.layout}"
-      )
     # If we slice along rows, or attempt to extract several rows, then we may
     # end up with a non-contiguous slice of memory.
-    if base_idx[0] != 0 or slice_shape[0] != TMEM_ROWS:
+    if base_idx[0] != 0 or slice_shape[0] != self.shape[0]:
       raise NotImplementedError("TMEM cannot be sliced along rows")
-    if (
-        self.layout.replication_factor
-        != self.layout.remove_dimension(1).replication_factor
-    ):
-      raise NotImplementedError(
-          "Slicing along columns is not supported when columns are partitioned"
-          " across lanes or warps"
-      )
     col_idx = base_idx[1]
     if not isinstance(col_idx, ir.Value):
+      if col_idx % self.layout.base_tile_shape[1] != 0:
+        raise ValueError(
+            f"Column index ({col_idx}) must be divisible by tile shape column"
+            f" dimension {self.layout.base_tile_shape[1]}"
+        )
       col_idx = arith.constant(i32, col_idx)
     if col_idx.type == ir.IndexType.get():
       col_idx = arith.index_cast(i32, col_idx)
@@ -1206,6 +1198,13 @@ class TMEMRef:
     # that the address offset jumps over these replicated columns.
     if (rep := self.layout.replication_factor) > 1:
       col_idx = arith.muli(col_idx, arith.constant(i32, rep))
+    # The physical column offset must be scaled by the row folding ratio.
+    if self.layout.base_tile_shape[0] < TMEM_ROWS:
+      factor = TMEM_ROWS // self.layout.base_tile_shape[0]
+      col_idx = arith.divui(col_idx, arith.constant(i32, factor))
+    if self.layout.base_tile_shape[0] > TMEM_ROWS:
+      factor = self.layout.base_tile_shape[0] // TMEM_ROWS
+      col_idx = arith.muli(col_idx, arith.constant(i32, factor))
     if self.packing != 1:
       col_idx = arith.divui(col_idx, arith.constant(i32, self.packing))
     return TMEMRef(

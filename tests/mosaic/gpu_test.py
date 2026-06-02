@@ -1522,14 +1522,31 @@ class TCGen05Test(TestCase, jtu.CudaArchSpecificTest):
       (jnp.float16, tcgen05.LAYOUT, tcgen05.tmem_default_layout(1)),
       (jnp.float16, tcgen05.LAYOUT, tcgen05.tmem_default_layout(2)),
       (
+        jnp.float16,
+        None,
+        tcgen05.tmem_half_lane_layout(columns=32, packing=2),
+      ),
+      (
+        jnp.float16,
+        None,
+        tcgen05.tmem_m64_collective_layout(columns=32, packing=2),
+      ),
+      (
           jnp.float8_e5m2,
-          tcgen05.scales_layout().as_tiled_layout(),
+          None,
           tcgen05.scales_layout(),
       ),
+      (
+          jnp.float8_e5m2,
+          None,
+          tcgen05.b_scales_m64_collective_layout(),
+      ),
   )
-  def test_tmem_column_slicing_128_rows(self, dtype, reg_layout, tmem_layout):
-    shape = (128, 64)
+  def test_tmem_column_slicing(self, dtype, reg_layout, tmem_layout):
+    shape = (tmem_layout.base_tile_shape[0], 64)
     slicing = (slice(None), slice(32, 64))
+    if reg_layout is None:
+      reg_layout = tmem_layout.as_tiled_layout()
 
     def kernel(ctx, input, output, tmem):
       del ctx
@@ -1553,34 +1570,6 @@ class TCGen05Test(TestCase, jtu.CudaArchSpecificTest):
     )(x)
     np.testing.assert_array_equal(expected, y)
 
-  def test_tmem_column_slicing_128_rows_unsupported_layout(self):
-    shape, dtype = (128, 128), jnp.float16
-    slicing = (slice(None), slice(64, 128))
-
-    def kernel(ctx, input, output, tmem):
-      del ctx, input, output
-      tmem.slice(*slicing)
-
-    x = self.prng.uniform(-1, 1, shape).astype(dtype)
-    tmem_layout = tcgen05.TMEMLayout(
-        tcgen05.TRANSPOSED_LAYOUT.tiling,
-        tcgen05.TRANSPOSED_LAYOUT.warp_dims,
-        tcgen05.TRANSPOSED_LAYOUT.lane_dims,
-        tcgen05.TRANSPOSED_LAYOUT.vector_dim,
-    )
-    with self.assertRaisesRegex(
-        NotImplementedError,
-        "Slicing along columns is not supported when columns are partitioned"
-        " across lanes or warps",
-    ):
-      mgpu.as_gpu_kernel(
-          kernel,
-          (1, 1, 1),
-          (128, 1, 1),
-          jax.ShapeDtypeStruct(shape, dtype),
-          jax.ShapeDtypeStruct((128, 64), dtype),
-          mgpu.TMEM(shape, dtype, layout=tmem_layout),
-      )(x)
 
   def test_mixed_tmem_allocations_raise(self):
     def body(ctx, out, scratch):
