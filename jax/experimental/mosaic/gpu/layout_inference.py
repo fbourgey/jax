@@ -2069,7 +2069,16 @@ def _vector_value_sites_and_assignments_for_async_ops(
     if isinstance(idx.type, ir.VectorType):
       value_site = ValueSite(op, VariableType.OPERAND, base_operand_index + i)
       value_site_var = cs.Variable(value_site)
-      layout = cs.RegisterLayout(value=fa.TMA_INDICES_LAYOUT)
+      shape = tuple(idx.type.shape)
+      if len(shape) != 1:
+        raise ValueError("Index arrays must be 1D.")
+
+      if shape[0] % 16 == 0:
+        layout = cs.RegisterLayout(value=fa.TMA_INDICES_LAYOUT)
+      elif shape[0] % 4 == 0:
+        layout = cs.RegisterLayout(value=fa.TMA_INDICES_4_LAYOUT)
+      else:
+        raise ValueError(f"Unsupported TMA index shape {shape}")
       values_sites[value_site_var] = [value_site]
       assignments[value_site_var] = layout
   return values_sites, assignments
