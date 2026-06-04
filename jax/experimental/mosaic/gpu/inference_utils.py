@@ -16,7 +16,7 @@
 
 from collections.abc import Sequence
 from functools import partial
-from typing import Union
+from typing import Callable, TypeVar, Union
 
 from jax._src.lib import mosaic_gpu_dialect as mgpu
 from jax._src.lib.mlir import ir
@@ -24,6 +24,7 @@ from jax._src.lib.mlir import ir
 from . import utils
 
 MlirOperation = Union[ir.Operation, ir.OpView]
+R = TypeVar("R")
 
 
 def in_layouts(op: MlirOperation) -> Sequence[ir.Attribute]:
@@ -229,3 +230,15 @@ def compute_swizzle(minor_tiling: int, bitwidth: int) -> int:
   if tiling_bytewidth in [128, 64, 32]:
     return tiling_bytewidth
   return 16  # no swizzle
+
+
+class BadLayout:
+  ...
+
+
+def safe_layout_construct(f: Callable[..., R], *args, **kwargs) -> R | BadLayout:
+  """Returns `BadLayout` if invoking `f(*args, **kwargs)` raises an exception. Otherwise returns the result of applied `f`."""
+  try:
+    return f(*args, **kwargs)
+  except:
+    return BadLayout()

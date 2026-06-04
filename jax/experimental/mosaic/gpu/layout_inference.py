@@ -289,14 +289,17 @@ def _extract_layout_candidates_from_tmem_registers_transfer(
 
   columns = constraint.shape[1]
 
+  safe_cons = inference_utils.safe_layout_construct
   if isinstance(constant, cs.TMEMLayout):
     for candidate in (
         fa.TCGEN05_LAYOUT,
         constant.value.as_tiled_layout(),
         fa.TMEM_NATIVE_LAYOUT,
         fa.WGMMA_LAYOUT,
-        tcgen05.fa_m64_collective_layout(columns),
+        safe_cons(tcgen05.fa_m64_collective_layout, columns),
     ):
+      if isinstance(candidate, inference_utils.BadLayout):
+        continue
       if constraint.is_valid_tmem_transfer(constant.value, candidate):
         yield variable, cs.RegisterLayout(candidate)
     return
@@ -306,10 +309,12 @@ def _extract_layout_candidates_from_tmem_registers_transfer(
     return
   for packing in dict.fromkeys([32 // constraint.bitwidth, 1]):
     for candidate in (
-        tcgen05.tmem_default_layout(packing),
-        tcgen05.tmem_half_lane_layout(columns, packing),
-        tcgen05.tmem_m64_collective_layout(columns, packing),
+        safe_cons(tcgen05.tmem_default_layout, packing),
+        safe_cons(tcgen05.tmem_half_lane_layout, columns, packing),
+        safe_cons(tcgen05.tmem_m64_collective_layout, columns, packing),
     ):
+      if isinstance(candidate, inference_utils.BadLayout):
+        continue
       if constraint.is_valid_tmem_transfer(candidate, constant.value):
         yield variable, cs.TMEMLayout(candidate)
 

@@ -602,14 +602,15 @@ class IsTransferableTmemRegisters(IsTransferable):
         and ((self.bitwidth == 16 and packing == 1) or self.bitwidth == 32)
     ):
       return True
+    safe_cons = inference_utils.safe_layout_construct
     if (
         reg_layout == fa.WGMMA_LAYOUT
-        and tmem_layout == tcgen05.tmem_half_lane_layout(columns, packing)
+        and tmem_layout == safe_cons(tcgen05.tmem_half_lane_layout, columns, packing)
     ):
       return True
     if (
-        reg_layout == tcgen05.fa_m64_collective_layout(columns)
-        and tmem_layout == tcgen05.tmem_m64_collective_layout(columns, packing)
+        reg_layout == safe_cons(tcgen05.fa_m64_collective_layout, columns)
+        and tmem_layout == safe_cons(tcgen05.tmem_m64_collective_layout, columns, packing)
     ):
       return True
     return False
