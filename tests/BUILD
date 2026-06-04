@@ -287,6 +287,20 @@ jax_multiplatform_test(
 )
 
 jax_multiplatform_test(
+    name = "xla_transform_e2e_test",
+    srcs = ["xla_transform_e2e_test.py"],
+    enable_backends = ["tpu"],
+    deps = [
+        "//jax/extend:xla",
+        "//jaxlib:_xla",
+        "@xla//xla/python:_hlo",
+    ] + py_deps([
+        "absl/testing",
+        "numpy",
+    ]),
+)
+
+jax_multiplatform_test(
     name = "ffi_test",
     srcs = ["ffi_test.py"],
     enable_configs = [
